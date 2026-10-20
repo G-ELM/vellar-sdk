@@ -46,7 +46,7 @@ describe("validatePolicyDefinitionUnits", () => {
   // Heuristic: a whole-number string whose value exceeds the total XLM supply
   // (~50 billion) cannot be a real XLM limit and is flagged as probable stroops.
   it("flags a stroop-looking large integer string as suspicious", () => {
-    const result = validatePolicyDefinitionUnits(def({ dailyXlm: "100000000000000" })); // 1M XLM in stroops
+    const result = validatePolicyDefinitionUnits(def({ dailyXlm: "100000000000000" })); // 10M XLM in stroops
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toMatch(/looks like a stroop amount/);
   });
