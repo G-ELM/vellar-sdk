@@ -66,6 +66,11 @@ export interface VellarWalletConfig {
   };
   /** Soroban token client factory, used for payments (a `SACClient`). */
   sac: SacClientLike;
+  /**
+   * Optional trustline check run by `pay()` before simulation; `false` rejects
+   * with `MissingTrustlineError`. Omit for assets that need no trustline.
+   */
+  hasTrustline?: (account: string, token: TokenInfo) => Promise<boolean>;
   /** Validates a Stellar address before a payment is ever signed. */
   isValidAddress: (address: string) => boolean;
   /** Test/advanced hook: convert the kit's signed output to XDR. */
@@ -226,6 +231,7 @@ export function createVellarWallet(config: VellarWalletConfig): VellarWallet {
     network: config.network,
     isValidAddress: config.isValidAddress,
     signedToXdr,
+    hasTrustline: config.hasTrustline,
   });
 
   let session: WalletSession | null = null;

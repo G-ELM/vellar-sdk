@@ -3,6 +3,7 @@ import { InvalidAmountError, parseTokenAmount } from "./payments";
 import {
   createPaymentClient,
   InvalidRecipientError,
+  MissingTrustlineError,
   type PaymentClientOptions,
   type SacClientLike,
 } from "./payments-client";
@@ -116,6 +117,58 @@ describe("createPaymentClient.preparePayment", () => {
     await expect(
       client.preparePayment({ from: FROM, to: TO, token: xlm, amount: 5n }),
     ).rejects.toThrow("insufficient balance");
+  });
+});
+
+describe("createPaymentClient trustline check", () => {
+  const usdc = { symbol: "USDC", contractId: "CUSDC", decimals: 7 };
+
+  it("rejects with MissingTrustlineError before simulation or any passkey prompt", async () => {
+    const hasTrustline = vi.fn().mockResolvedValue(false);
+    const { client, transfer, getSACClient, sign, submitTransaction } = clientWith({
+      hasTrustline,
+    });
+
+    const attempt = client.preparePayment({ from: FROM, to: TO, token: usdc, amount: 5n });
+    await expect(attempt).rejects.toBeInstanceOf(MissingTrustlineError);
+    await expect(attempt).rejects.toThrow(/no trustline for USDC \(CUSDC\)/);
+
+    expect(hasTrustline).toHaveBeenCalledWith(FROM, usdc);
+    expect(getSACClient).not.toHaveBeenCalled();
+    expect(transfer).not.toHaveBeenCalled();
+    expect(sign).not.toHaveBeenCalled();
+    expect(submitTransaction).not.toHaveBeenCalled();
+  });
+
+  it("is distinguishable from a generic simulation failure", async () => {
+    const { sac } = fakeSac(vi.fn().mockRejectedValue(new Error("simulation failed")));
+    const { client } = clientWith({ sac, hasTrustline: async () => true });
+    const err = await client
+      .preparePayment({ from: FROM, to: TO, token: usdc, amount: 5n })
+      .catch((e) => e);
+    expect(err).not.toBeInstanceOf(MissingTrustlineError);
+    expect(err.message).toBe("simulation failed");
+  });
+
+  it("proceeds to build the transfer when the trustline exists", async () => {
+    const { client, transfer } = clientWith({ hasTrustline: async () => true });
+    await client.preparePayment({ from: FROM, to: TO, token: usdc, amount: 5n });
+    expect(transfer).toHaveBeenCalledOnce();
+  });
+
+  it("skips the check when no hasTrustline is configured", async () => {
+    const { client, transfer } = clientWith();
+    await client.preparePayment({ from: FROM, to: TO, token: usdc, amount: 5n });
+    expect(transfer).toHaveBeenCalledOnce();
+  });
+
+  it("validates the recipient before consulting the trustline check", async () => {
+    const hasTrustline = vi.fn().mockResolvedValue(false);
+    const { client } = clientWith({ isValidAddress: () => false, hasTrustline });
+    await expect(
+      client.preparePayment({ from: FROM, to: "junk", token: usdc, amount: 5n }),
+    ).rejects.toBeInstanceOf(InvalidRecipientError);
+    expect(hasTrustline).not.toHaveBeenCalled();
   });
 });
 
