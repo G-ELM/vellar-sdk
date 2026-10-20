@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createVellarWallet, WalletNotReadyError } from "./client";
-import { PasskeyBrowserRequiredError } from "./passkeykit-connector";
+import { PasskeyBrowserRequiredError, WalletNetworkMismatchError } from "./passkeykit-connector";
 import { X402NotConfiguredError, type SmartAccountX402Signer } from "./x402-types";
 import type { TokenInfo } from "./balances";
 
@@ -135,6 +135,40 @@ describe("createVellarWallet", () => {
       PasskeyBrowserRequiredError,
     );
     expect(kit.createWallet).not.toHaveBeenCalled();
+  });
+});
+
+describe("CreateWalletInput network consistency", () => {
+  it("createWallet rejects a network that conflicts with the configured one before any prompt or RPC", async () => {
+    const { wallet, kit, backend } = build({ network: "testnet" });
+
+    const attempt = wallet.connector.createWallet({ network: "mainnet", username: "alice" });
+    await expect(attempt).rejects.toBeInstanceOf(WalletNetworkMismatchError);
+    await expect(attempt).rejects.toMatchObject({ name: "WalletNetworkMismatchError" });
+
+    expect(kit.createWallet).not.toHaveBeenCalled();
+    expect(backend.submitWalletCreation).not.toHaveBeenCalled();
+    expect(wallet.session).toBeNull();
+  });
+
+  it("the error message names both the configured network and the conflicting value", async () => {
+    const { wallet } = build({ network: "testnet" });
+    await expect(
+      wallet.connector.createWallet({ network: "mainnet" }),
+    ).rejects.toThrow(/testnet.*mainnet/);
+  });
+
+  it("createWallet accepts an input network equal to the configured one", async () => {
+    const { wallet, kit } = build({ network: "mainnet" });
+    const session = await wallet.connector.createWallet({ network: "mainnet", username: "bob" });
+    expect(session.network).toBe("mainnet");
+    expect(kit.createWallet).toHaveBeenCalledWith("Test App", "bob");
+  });
+
+  it("wallet.create() always uses the configured network", async () => {
+    const { wallet } = build({ network: "mainnet" });
+    const session = await wallet.create({ username: "carol" });
+    expect(session.network).toBe("mainnet");
   });
 });
 
