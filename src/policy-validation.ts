@@ -16,9 +16,9 @@ const STROOP_DECIMALS = 7;
 /**
  * Stroop-looking heuristic: a whole-number string (no decimal point) whose XLM
  * value exceeds the total XLM supply (~50 billion XLM, i.e. 50_000_000_000)
- * cannot be a real XLM limit, but is a plausible stroop amount (50 billion XLM
- * = 5×10^17 stroops; e.g. "100000000000" is 10,000 XLM in stroops but 100
- * billion XLM as written). Only integers are flagged — a fractional value
+ * cannot be a real XLM limit, yet a stroop amount of a realistic limit easily
+ * reaches that size (e.g. "100000000000000" is 10,000,000 XLM as stroops,
+ * but 100 trillion XLM as written). Only integers are flagged — a fractional value
  * clearly reads as XLM. Smaller stroop amounts are indistinguishable from
  * legitimate XLM values and are deliberately not flagged.
  */
