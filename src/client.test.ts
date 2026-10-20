@@ -138,6 +138,102 @@ describe("createVellarWallet", () => {
   });
 });
 
+describe("disconnect", () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  }
+
+  it("clears the session locally without touching the kit, backend, or chain", async () => {
+    const { wallet, kit, backend } = build();
+    await wallet.connect();
+    kit.sign.mockClear();
+
+    wallet.disconnect();
+
+    expect(wallet.session).toBeNull();
+    expect(kit.sign).not.toHaveBeenCalled();
+    expect(backend.submitTransaction).not.toHaveBeenCalled();
+  });
+
+  it("is a safe no-op before connect and when called twice", () => {
+    const { wallet } = build();
+    expect(() => {
+      wallet.disconnect();
+      wallet.disconnect();
+    }).not.toThrow();
+    expect(wallet.session).toBeNull();
+  });
+
+  it("pay() after disconnect throws WalletNotReadyError", async () => {
+    const { wallet, kit } = build();
+    await wallet.connect();
+    wallet.disconnect();
+    await expect(wallet.pay({ to: "CDEST", amount: 5n, token })).rejects.toBeInstanceOf(
+      WalletNotReadyError,
+    );
+    expect(kit.sign).not.toHaveBeenCalled();
+  });
+
+  it("an in-flight pay awaiting the passkey prompt still completes and returns its hash", async () => {
+    const { wallet, kit, backend } = build();
+    await wallet.connect();
+
+    const prompt = deferred<unknown>();
+    kit.sign.mockImplementationOnce(() => prompt.promise);
+
+    const inFlight = wallet.pay({ to: "CDEST", amount: 5n, token });
+    // Let pay() reach the passkey prompt.
+    await vi.waitFor(() => expect(kit.sign).toHaveBeenCalledOnce());
+
+    wallet.disconnect();
+    expect(wallet.session).toBeNull();
+
+    prompt.resolve("signed-xdr");
+    await expect(inFlight).resolves.toEqual({ hash: "txhash-abc" });
+    expect(backend.submitTransaction).toHaveBeenCalledOnce();
+    expect(wallet.session).toBeNull();
+  });
+
+  it("an in-flight pay disconnected during build/simulation still completes", async () => {
+    const { wallet, sac, backend } = build();
+    await wallet.connect();
+
+    const built = deferred<string>();
+    sac._transfer.mockImplementationOnce(() => built.promise);
+
+    const inFlight = wallet.pay({ to: "CDEST", amount: 5n, token });
+    await vi.waitFor(() => expect(sac._transfer).toHaveBeenCalledOnce());
+
+    wallet.disconnect();
+    built.resolve("built-transfer-xdr");
+
+    await expect(inFlight).resolves.toEqual({ hash: "txhash-abc" });
+    expect(backend.submitTransaction).toHaveBeenCalledOnce();
+  });
+
+  it("an in-flight pay that fails surfaces its own error rather than vanishing", async () => {
+    const { wallet, kit } = build();
+    await wallet.connect();
+
+    const prompt = deferred<unknown>();
+    kit.sign.mockImplementationOnce(() => prompt.promise);
+
+    const inFlight = wallet.pay({ to: "CDEST", amount: 5n, token });
+    await vi.waitFor(() => expect(kit.sign).toHaveBeenCalledOnce());
+
+    wallet.disconnect();
+    prompt.reject(new Error("user cancelled passkey"));
+
+    await expect(inFlight).rejects.toThrow("user cancelled passkey");
+  });
+});
+
 describe("CreateWalletInput network consistency", () => {
   it("createWallet rejects a network that conflicts with the configured one before any prompt or RPC", async () => {
     const { wallet, kit, backend } = build({ network: "testnet" });

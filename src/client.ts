@@ -151,6 +151,15 @@ export interface VellarWallet {
    * if the host wired keyId resumption into `kit`). */
   connect(): Promise<WalletSession>;
   /**
+   * Clear the local session (`session` becomes null). Purely local: no passkey
+   * prompt, no backend/RPC call, nothing on-chain. Idempotent. A `pay()` already
+   * in flight is NOT aborted — it was bound to the session at call time, so it
+   * runs to completion and still resolves with its hash (or rejects with its
+   * own error); it is never silently dropped. New `pay()` calls after
+   * `disconnect()` throw `WalletNotReadyError`.
+   */
+  disconnect(): void;
+  /**
    * Send a payment: builds + simulates, then signs with the passkey and submits.
    * Simulation happens inside `prepare`, so failures surface before the passkey
    * prompt. Returns the network transaction hash.
@@ -321,6 +330,10 @@ export function createVellarWallet(config: VellarWalletConfig): VellarWallet {
     async connect() {
       session = await connector.connectWallet(config.network);
       return session;
+    },
+
+    disconnect() {
+      session = null;
     },
 
     async pay({ to, amount, token }) {
