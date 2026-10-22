@@ -122,7 +122,6 @@ Returns a `VellarWallet`:
 | `session`                    | The current `WalletSession`, or `null` before create/connect |
 | `create({ username? })`      | Register a passkey and create the smart account              |
 | `connect()`                  | Reconnect with an existing passkey                           |
-| `disconnect()`               | Clear the local session — no prompt, no RPC, nothing on-chain. An in-flight `pay()` is not aborted: it completes and still resolves/rejects normally; new `pay()` calls throw `WalletNotReadyError` |
 | `pay({ to, amount, token })` | Build → simulate → sign → submit; returns `{ hash }`         |
 | `policies`                   | Programmable account policies — see [Policies](#policies)   |
 | `x402`                       | Agentic payments — pay HTTP-402 resources — see [x402](#x402) |

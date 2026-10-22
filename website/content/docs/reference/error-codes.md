@@ -49,7 +49,6 @@ them means nothing was signed or submitted, so no money moved.
 | `NoUsablePaymentOptionError` | No offered option matched the scheme and network, or none advertised `areFeesSponsored: true` | No | Yes, against a facilitator that sponsors fees |
 | `InvalidRequirementsError` | A payment requirement was malformed, for example a non-integer amount | No | No, the seller's challenge has to be fixed first |
 | `PaymentRejectedError` | The facilitator rejected at the verify stage. Carries the reason. | No | Only after reading the reason and fixing the cause |
-| `MissingTrustlineError` | `wallet.pay` was called for an asset the sending account has no trustline for, per the `hasTrustline` check in the wallet config. Thrown before simulation and before the passkey prompt; carries `account` and `token`. Distinct from a generic simulation failure. | No | Yes, after establishing the trustline |
 | `X402NotConfiguredError` | `wallet.x402` used with no `x402` config. From 0.6.1 it is also thrown at construction when `rpcUrl` is missing, empty, or unparseable. | No | Yes, after adding the config |
 
 > **Note:** Amounts are bigints in the asset's base units. Stellar Asset

@@ -37,24 +37,6 @@ export class InvalidRecipientError extends Error {
   }
 }
 
-/**
- * The sending account has no trustline for the payment asset. Thrown before
- * simulation (and so before any passkey prompt), distinct from a generic
- * simulation failure.
- */
-export class MissingTrustlineError extends Error {
-  constructor(
-    readonly account: string,
-    readonly token: TokenInfo,
-  ) {
-    super(
-      `Account ${account} has no trustline for ${token.symbol} (${token.contractId}); ` +
-        "establish the trustline before paying in this asset",
-    );
-    this.name = "MissingTrustlineError";
-  }
-}
-
 export interface PreparedPayment {
   review: PaymentReview;
   /** Sign with the passkey and submit. Only ever call after explicit user approval. */
@@ -78,13 +60,6 @@ export interface PaymentClientOptions {
   /** Address validation is required — payments must never reach signing with a bad recipient. */
   isValidAddress: (address: string) => boolean;
   signedToXdr?: (signed: unknown) => string;
-  /**
-   * Optional trustline check (e.g. backed by the balances RPC). When supplied,
-   * a `false` result rejects with `MissingTrustlineError` before simulation.
-   * Omit for assets that need no trustline (native XLM / pure Soroban tokens);
-   * without it, a missing trustline only surfaces as a simulation failure.
-   */
-  hasTrustline?: (account: string, token: TokenInfo) => Promise<boolean>;
 }
 
 export function createPaymentClient(options: PaymentClientOptions): PaymentClient {
@@ -100,10 +75,6 @@ export function createPaymentClient(options: PaymentClientOptions): PaymentClien
       }
       if (amount <= 0n) {
         throw new InvalidAmountError("Amount must be greater than zero");
-      }
-
-      if (options.hasTrustline && !(await options.hasTrustline(from, token))) {
-        throw new MissingTrustlineError(from, token);
       }
 
       // Builds AND simulates; simulation failures (e.g. insufficient balance)

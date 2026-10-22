@@ -22,13 +22,6 @@ export interface WalletSession {
   keyId?: string;
 }
 
-/**
- * Input to `WalletConnector.createWallet`. `network` is NOT an independent
- * choice: it must equal the network the wallet/connector was configured with
- * (`createVellarWallet({ network })`). A different value is rejected with
- * `WalletNetworkMismatchError` (naming both networks) before any passkey
- * prompt or RPC call. `wallet.create()` fills it in from the config for you.
- */
 export interface CreateWalletInput {
   username?: string;
   network: Network;
